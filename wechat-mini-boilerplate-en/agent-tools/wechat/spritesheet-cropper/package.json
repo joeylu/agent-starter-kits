@@ -1,0 +1,18 @@
+{
+  "name": "spritesheet-cropper",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sharp-based spritesheet cropper and PixiJS atlas generator for WeChat Mini Game assets.",
+  "type": "commonjs",
+  "bin": {
+    "spritesheet-cropper": "scripts/spritesheet-cropper.js",
+    "validate-animation-assets": "scripts/validate-animation-assets.js"
+  },
+  "scripts": {
+    "check": "node --check scripts/spritesheet-cropper.js && node --check scripts/validate-animation-assets.js",
+    "validate:animations": "node scripts/validate-animation-assets.js"
+  },
+  "dependencies": {
+    "sharp": "^0.34.5"
+  }
+}

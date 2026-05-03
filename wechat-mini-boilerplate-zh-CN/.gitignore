@@ -1,0 +1,5 @@
+agent-documents/Deploy/*.key
+agent-documents/Deploy/credential.local.json
+wechat/node_modules/
+wechat/miniprogram_npm/
+wechat/preview/
