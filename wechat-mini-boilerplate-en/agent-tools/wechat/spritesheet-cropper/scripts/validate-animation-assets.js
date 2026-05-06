@@ -105,7 +105,7 @@ function hasSiblingAtlasData(filePath) {
 
 function collectForbiddenFiles(animationName) {
   const repoRoot = getRepoRoot();
-  const allowedRoot = path.join(repoRoot, "wechat/user-assets/animations");
+  const allowedRoot = path.join(repoRoot, "wechat/images/animations");
   const forbiddenRoots = [
     path.join(repoRoot, "wechat/images"),
     path.join(repoRoot, "wechat/js"),
@@ -115,33 +115,41 @@ function collectForbiddenFiles(animationName) {
 
   for (const forbiddenRoot of forbiddenRoots) {
     for (const filePath of walkFiles(forbiddenRoot)) {
-      if (filePath.startsWith(allowedRoot + path.sep)) {
-        continue;
-      }
-
       const ext = path.extname(filePath).toLowerCase();
       const basename = path.basename(filePath);
       const stem = path.basename(filePath, ext);
       const animationNameMatch = animationName
         && (stem === animationName || stem === `${animationName}-data`);
 
+      if (filePath.startsWith(allowedRoot + path.sep)) {
+        if (looksLikeAtlasModule(filePath)) {
+          violations.push(`${toDisplayPath(filePath)}: Pixi6 atlas data module is not allowed; use frames/ plus an ESM data helper`);
+        }
+
+        if (ext === ".json" && isAtlasJson(filePath)) {
+          violations.push(`${toDisplayPath(filePath)}: Pixi6 atlas JSON is not allowed; use frames/ plus an ESM data helper`);
+        }
+
+        continue;
+      }
+
       if (looksLikeAtlasModule(filePath)) {
-        violations.push(`${toDisplayPath(filePath)}: atlas data module is outside wechat/user-assets/animations/{name}/`);
+        violations.push(`${toDisplayPath(filePath)}: atlas data module is outside wechat/images/animations/{name}/`);
         continue;
       }
 
       if (ext === ".json" && isAtlasJson(filePath)) {
-        violations.push(`${toDisplayPath(filePath)}: atlas JSON is outside wechat/user-assets/animations/{name}/`);
+        violations.push(`${toDisplayPath(filePath)}: atlas JSON is outside wechat/images/animations/{name}/`);
         continue;
       }
 
       if (ext === ".png" && (animationNameMatch || hasSiblingAtlasData(filePath))) {
-        violations.push(`${toDisplayPath(filePath)}: atlas PNG is outside wechat/user-assets/animations/{name}/`);
+        violations.push(`${toDisplayPath(filePath)}: atlas PNG is outside wechat/images/animations/{name}/`);
         continue;
       }
 
       if (animationName && basename === `${animationName}-data.js`) {
-        violations.push(`${toDisplayPath(filePath)}: named atlas data module is outside wechat/user-assets/animations/${animationName}/`);
+        violations.push(`${toDisplayPath(filePath)}: named atlas data module is outside wechat/images/animations/${animationName}/`);
       }
     }
   }
@@ -151,19 +159,42 @@ function collectForbiddenFiles(animationName) {
 
 function validateNamedPackage(animationName) {
   const repoRoot = getRepoRoot();
-  const packageDir = path.join(repoRoot, "wechat/user-assets/animations", animationName);
-  const requiredFiles = [
-    path.join(packageDir, `${animationName}.png`),
-    path.join(packageDir, `${animationName}.json`),
-    path.join(packageDir, `${animationName}-data.js`)
-  ];
+  const packageDir = path.join(repoRoot, "wechat/images/animations", animationName);
+  const framesDir = path.join(packageDir, "frames");
+  const manifestPath = path.join(repoRoot, "wechat/src/assets/animations", `${animationName}.js`);
+  const requiredFiles = [manifestPath];
   const missing = requiredFiles.filter((filePath) => !fs.existsSync(filePath));
 
   if (!fs.existsSync(packageDir)) {
-    return [`wechat/user-assets/animations/${animationName}: required animation package directory is missing`];
+    return [`wechat/images/animations/${animationName}: required animation package directory is missing`];
   }
 
-  return missing.map((filePath) => `${toDisplayPath(filePath)}: required animation package file is missing`);
+  const violations = missing.map((filePath) => `${toDisplayPath(filePath)}: required animation package file is missing`);
+
+  if (fs.existsSync(manifestPath)) {
+    const manifestText = fs.readFileSync(manifestPath, "utf8");
+
+    if (manifestText.includes("user-assets/")) {
+      violations.push(`${toDisplayPath(manifestPath)}: runtime animation paths must use images/... instead of user-assets/...`);
+    }
+
+    if (!manifestText.includes(`images/animations/${animationName}/frames/`)) {
+      violations.push(`${toDisplayPath(manifestPath)}: runtime animation paths must point at images/animations/${animationName}/frames/`);
+    }
+  }
+
+  if (!fs.existsSync(framesDir)) {
+    violations.push(`wechat/images/animations/${animationName}/frames: required frame directory is missing`);
+    return violations;
+  }
+
+  const frameFiles = walkFiles(framesDir).filter((filePath) => path.extname(filePath).toLowerCase() === ".png");
+
+  if (frameFiles.length === 0) {
+    violations.push(`wechat/images/animations/${animationName}/frames: at least one PNG frame is required`);
+  }
+
+  return violations;
 }
 
 function main() {
@@ -191,9 +222,10 @@ function main() {
     checkedForbiddenRoots: [
       "wechat/images",
       "wechat/js",
-      "wechat/user-assets outside animations/{name}"
+      "wechat/user-assets",
+      "Pixi6 atlas data inside wechat/images/animations"
     ],
-    requiredPackageRoot: animationName ? `wechat/user-assets/animations/${animationName}` : null
+    requiredPackageRoot: animationName ? `wechat/images/animations/${animationName}` : null
   }, null, 2));
 }
 

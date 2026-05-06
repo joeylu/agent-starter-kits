@@ -1,41 +1,22 @@
 {
-  "engines": {
-    "node": ">=24 <25"
+  "baseline": {
+    "source": "wechat-miniprogram/minigame-lockstep-demo",
+    "pixiVersion": "4.8.2",
+    "assetRoot": "agent-tools/wechat/minigame-init/assets/pixi4-baseline",
+    "requiredFiles": [
+      "libs/weapp-adapter.js",
+      "libs/pixi.js",
+      "game.js",
+      "src/index.js",
+      "src/config.js"
+    ]
   },
   "scripts": {
-    "build:npm": "node scripts/build-npm.js",
     "preview": "node scripts/preview.js",
     "upload": "node scripts/upload.js"
   },
-  "dependencies": {
-    "pixi.js": "6.5.10"
-  },
-  "devDependencies": {
-    "@pixi/unsafe-eval": "6.5.10",
-    "minigame-api-typings": "3.8.12",
-    "miniprogram-ci": "2.1.26"
-  },
-  "overrides": {
-    "less": "4.1.2"
-  },
-  "projectConfig": {
-    "setting": {
-      "packNpmManually": false,
-      "packNpmRelationList": []
-    }
-  },
-  "build": {
-    "fatalOutputPatterns": [
-      "parse js file .* failed"
-    ],
-    "smokeChecks": [
-      "miniprogram_npm/pixi.js/index.js",
-      "miniprogram_npm/@pixi/extensions/index.js",
-      "js/vendor/pixi-runtime.js"
-    ]
-  },
   "defaults": {
-    "description": "WeChat Mini Game project shell",
+    "description": "WeChat Mini Game Pixi4 project shell",
     "version": "1.0.0"
   }
 }

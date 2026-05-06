@@ -2,178 +2,158 @@
 
 ## 目的
 
-本文档是本仓库中 WeChat Mini Program 工作的硬规则集。
+这是本仓库 WeChat Mini Program 工作的硬规则。
 
-它只在 `/wechat/app.json` 存在，并且项目已由 `WECHAT.md` 检测为 **WeChat Mini Program** 时适用。
+仅当 `WECHAT.md` 检测到 `/wechat/app.json` 且项目类型为 **WeChat Mini Program** 时适用。
 
-如果项目被检测为 **WeChat Mini Game**，不得把本文档作为实现标准。
-
----
+如果项目被检测为 **WeChat Mini Game**，不得用本文档作为实现标准。
 
 ## 硬入口规则
 
-当 `WECHAT.md` 检测到 Mini Program 时，agent 必须在任何 Mini Program 设计、源码编辑、初始化、重构、测试、预览、上传或部署工作前读取本文档。
+当 `WECHAT.md` 检测到 Mini Program 时，agent 在任何设计、源码编辑、初始化、重构、测试、preview、upload 或部署工作前，必须读取本文档。
 
 如果本文档缺失或不可读，停止。
 
----
-
 ## 项目边界
 
-所有真实 Mini Program 项目文件都位于：
+真实 Mini Program 项目文件都在：
 
-- `/wechat`
+```text
+/wechat
+```
 
-所有 agent 文档都位于：
+Agent 文档都在：
 
-- `/agent-documents`
+```text
+/agent-documents
+```
 
-不要在 `/wechat` 内创建备注、README、流程文档、总结或 agent 工作流文件。
-
----
+不要在 `/wechat` 中创建备注、README、流程文档、总结或 agent 工作流文件。
 
 ## Mini Program 身份
 
-Mini Program 是页面驱动的。
+Mini Program 是页面驱动，不是游戏循环驱动。
 
-标准信号是：
+标准信号：
 
 - `/wechat/app.json`
 - `app.json` 中声明的页面路由
-- 使用 Mini Program 页面约定的页面文件
+- 页面文件使用小程序页面约定
 - WXML 负责结构
 - WXSS 负责样式
-- JavaScript 负责行为，除非现有项目已经使用其他源码层
+- 默认用 JavaScript 负责行为，除非现有项目已使用其他源码层
 
 不要把 Mini Program 当作 Mini Game。
 
-除非 Owner 明确改变项目类型或要求类似游戏的功能，不要引入 game loop、canvas-first runtime、physics loop 或 asset-loader 架构。
-
----
+不要引入 game loop、canvas-first runtime、physics loop 或 asset-loader 架构，除非 Owner 明确改变项目类型或要求游戏化功能。
 
 ## 文件结构规则
 
-Mini Program 工作必须遵守这些边界：
+Mini Program 工作必须遵守：
 
-- `app.json` 拥有全局 Mini Program 配置和页面路由注册。
-- `app.js` 只拥有全局应用生命周期和全局启动。
-- `app.wxss` 只拥有全局样式。
-- 每个页面必须位于自己的页面目录。
-- 页面目录应把相关 `.js`、`.json`、`.wxml`、`.wxss` 文件放在一起。
-- 可复用 UI 放在 components，不要复制页面 markup。
-- 可复用的非 UI 逻辑放在 utility 或 service modules，不要放在页面文件里。
+- `app.json` 负责全局配置和页面路由注册
+- `app.js` 只负责全局应用生命周期和全局启动
+- `app.wxss` 只负责全局样式
+- 每个页面放在自己的页面目录
+- 页面目录应放同一页面相关的 `.js`、`.json`、`.wxml`、`.wxss`
+- 可复用 UI 放 components，不复制页面 markup
+- 可复用非 UI 逻辑放 utility 或 service 模块，不堆在 page 文件里
 
-不要把页面逻辑散落到无关文件夹。
-
-不要把 agent 文档或部署备注放进页面文件夹。
-
----
+不要把页面逻辑散落到无关目录。
+不要把 agent 文档或部署备注放进页面目录。
 
 ## 运行时规则
 
-Mini Program 代码必须使用 WeChat Mini Program 运行时模型：
+Mini Program 代码必须使用微信小程序运行时模型：
 
-- 在合适的位置使用 `App`、`Page`、`Component` 生命周期
-- 使用 `wx.*` API 访问平台能力
-- 不要假设存在 `window`、`document`、`localStorage` 或直接修改 DOM 等浏览器 DOM API
-- 不要假设标准 Web routing
-- 不要假设 npm packages 可在 runtime 使用，除非它们与 Mini Program 环境和 build 行为兼容
+- 适当使用 `App`、`Page`、`Component` 生命周期
+- 使用 `wx.*` API 调用平台能力
+- 不假设浏览器 DOM API，例如 `window`、`document`、`localStorage` 或直接 DOM mutation
+- 不假设标准 Web routing
+- 不假设 npm 包一定能在小程序运行时使用，除非确认兼容小程序环境和构建行为
 
-如果依赖需要浏览器 DOM、Node runtime API、native modules 或不受支持的 globals，不要添加它。
-
----
+如果依赖需要浏览器 DOM、Node runtime API、native module 或不支持的全局对象，不要添加。
 
 ## 页面和组件规则
 
-Pages 是路由级容器。
-
-Components 是可复用 UI 和交互单元。
+页面是路由级容器。
+组件是可复用 UI 和交互单元。
 
 规则：
 
-- Page files 可以协调数据加载、导航和页面级状态。
-- Components 不应拥有路由决策，除非这正是它们的明确目的。
-- Component public properties 必须明确。
-- Component events 必须按用户意图命名，而不是按实现细节命名。
-- 避免把网络、渲染、存储、校验、导航逻辑混在大型页面文件里。
+- Page 文件可以协调数据加载、导航和页面级状态
+- Component 不应拥有路由决策，除非它的目的就是路由
+- Component 公开 properties 必须明确
+- Component events 按用户意图命名，不按实现细节命名
+- 避免大页面文件混合网络、渲染、存储、校验和导航逻辑
 
-当逻辑开始服务多个页面时，把它移出页面。
-
----
+当逻辑服务超过一个页面时，把它移出页面。
 
 ## 数据和状态规则
 
-状态必须靠近其 owner。
+状态应靠近所有者。
 
 规则：
 
-- Page-local state 留在 page 中。
-- Component-local state 留在 component 中。
-- Cross-page state 必须明确，并在代码结构中可见。
-- Persisted data 必须使用稳定 key 和项目专属前缀。
-- 不要把 secrets 存入 client-side storage。
-- 不要把 client-side storage 当作 server-owned data 的权威来源。
+- 页面本地状态留在页面
+- 组件本地状态留在组件
+- 跨页面状态必须在代码结构中明确
+- 持久化数据使用稳定 key 和项目专属前缀
+- 不要把 secret 存在客户端 storage
+- 不要把客户端 storage 当作服务端数据权威来源
 
-网络请求结果在用于渲染关键 UI 前应先校验。
-
----
+关键 UI 渲染前应验证网络响应形状。
 
 ## UI 规则
 
-Mini Program UI 必须使用 WXML 和 WXSS 构建。
+Mini Program UI 使用 WXML 和 WXSS。
 
 规则：
 
-- 使用适合 Mini Program 屏幕的响应式布局单位
-- 考虑安全区和常见移动屏幕尺寸
-- 保持移动端 tap target 可用
-- 明确页面 loading、empty、error、success 状态
-- 避免按钮、tabs、cards 和紧凑 controls 中的文本溢出
+- 使用适合小程序屏幕的响应式单位
+- 考虑 safe area 和常见移动屏幕尺寸
+- 移动端 tap target 必须可用
+- 页面 loading、empty、error、success 状态必须明确
+- 避免按钮、tabs、cards、紧凑控件文本溢出
 - 不依赖 hover-only 交互
 
-如果功能需要 canvas，把它隔离为具体 component 或 page feature，不要作为默认 app 架构。
-
----
+如果功能需要 canvas，把它隔离为具体组件或页面功能，不把它变成默认应用架构。
 
 ## 导航规则
 
-导航必须遵循 Mini Program routing behavior。
+导航必须遵守小程序路由行为。
 
 规则：
 
-- 所有可路由页面必须在 `app.json` 中声明
-- 导航必须使用支持的 WeChat navigation API
-- tab pages 和普通 pages 不要随意混用
-- route 参数使用前必须校验
-- 每个新 user flow 都必须考虑返回行为
+- 所有可路由页面必须在 `app.json` 声明
+- 导航必须使用微信支持的 navigation API
+- tab 页面和普通页面不要随意混用
+- 使用路由参数前必须验证
+- 每个新流程都要考虑返回行为
 
-不要编造 client-side router。
-
----
+不要发明客户端 router。
 
 ## 网络和权限规则
 
-网络和权限工作必须明确。
+网络和权限必须明确。
 
 规则：
 
-- 使用 `wx.request` 或现有项目批准的 request wrappers
-- 当功能依赖网络访问时，记录必需 server domains
-- 处理请求失败、超时和无效响应结构
+- 使用 `wx.request` 或项目已批准 request wrapper
+- 功能依赖网络时说明必需服务器域名
+- 处理请求失败、超时、无效响应形状
 - 只在需要时请求用户权限
-- 平台要求时，在用户可见文案中说明为什么需要该权限
+- 平台要求时，用用户可见文案说明为什么需要权限
 
-不要在 Mini Program 源文件中硬编码私有凭证。
-
----
+不要在 Mini Program 源码中硬编码私密凭证。
 
 ## 测试和验证规则
 
-对 Mini Program 改动，验证最小有用范围：
+Mini Program 变更验证最小有效面：
 
-- 如果配置了 syntax 和 lint checks，运行它们
-- 添加或移动页面时，检查页面路由注册
-- 当行为或配置变更影响 runtime 时，运行 preview command
-- 只有 Owner 要求 upload 时，才运行 upload command
+- 已配置时运行 syntax / lint
+- 新增或移动页面时验证页面路由注册
+- 行为或配置影响运行时时运行 preview 命令
+- 只有 Owner 要求 upload 时才运行 upload 命令
 
-不要声称已提审或最终发布。这些仍由人类在网页控制台操作。
+不要声称提审或最终发布完成；这些仍由人类在网页控制台完成。

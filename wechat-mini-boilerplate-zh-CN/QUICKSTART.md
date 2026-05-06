@@ -17,9 +17,9 @@
 告诉 AI：初始化这个微信小游戏，或初始化这个微信小程序。
 
 AI 会检查 `/wechat` 项目壳、项目类型、`project.config.json` 和初始化条件。  
-如果是小游戏，AI 会同步 Pixi Mini Game 工具链、安装依赖、执行 `build:npm`，让项目达到 build-ready。
+如果是小游戏，AI 会同步官方 demo 风格的 Pixi4 本地文件基线；初始化不要求安装 npm Pixi，不安装 `@pixi/unsafe-eval`，也不把 `build:npm` 当作 Pixi 初始化条件。
 
-`build-ready` 指项目已经完成本地 npm 构建准备；小游戏场景下还包括生成 `miniprogram_npm/` 和 Pixi runtime 文件。
+初始化 `PASS` 指微信项目壳、类型文档、部署文档和必需 Pixi4 本地基线文件都已存在。
 
 ## 3. 凭证配置
 
@@ -48,7 +48,7 @@ AI 会根据 `/wechat/app.json` 或 `/wechat/game.json` 自动走小程序规则
 
 ## 5. 动画、粒子和素材
 
-如果是微信小游戏，提到 Pixi、帧动画、序列帧、粒子、烟雾、火焰、水花、拖尾、后期效果等，AI 会走 Pixi6 和 WeChat Mini Game 的专用规则。
+如果是微信小游戏，提到 Pixi、帧动画、序列帧、粒子、烟雾、火焰、水花、拖尾、后期效果等，AI 会走 Pixi4 和 WeChat Mini Game 的专用技能。
 
 示例：
 

@@ -1,18 +1,14 @@
 'use strict';
 
-const childProcess = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { runBuildNpm } = require('./build-npm-core');
-
 const {
-  copyDirectoryIfChanged,
+  copyFileIfChanged,
   createPackageName,
   ensureDir,
   ensureLines,
   ensureWechatProjectRoot,
-  loadVersions,
   readJson,
   readUtf8,
   toPosixPath,
@@ -20,19 +16,56 @@ const {
   writeTextIfChanged
 } = require('./shared');
 
+const BASELINE_ROOT = path.join('agent-tools', 'wechat', 'minigame-init', 'assets', 'pixi4-baseline');
+
+const REQUIRED_BASELINE_FILES = [
+  'libs/weapp-adapter.js',
+  'libs/pixi.js',
+  'game.js',
+  'src/index.js',
+  'src/config.js'
+];
+
+const REQUIRED_PROJECT_DIRS = [
+  'src/scenes',
+  'src/base',
+  'src/common',
+  'images',
+  'user-assets'
+];
+
 const PROJECT_GITIGNORE_LINES = [
   '*.key',
   'node_modules/',
+  'preview/'
+];
+
+const REMOVED_GITIGNORE_LINES = [
   'miniprogram_npm/',
-  'preview/',
   'js/vendor/pixi-runtime.js'
+];
+
+const LEGACY_PIXI6_DIRECTORIES = [
+  'miniprogram_npm',
+  'node_modules/pixi.js',
+  'node_modules/@pixi'
+];
+
+const LEGACY_PIXI6_FILES = [
+  'js/vendor/pixi-runtime.js',
+  'scripts/build-npm.js'
+];
+
+const LEGACY_PIXI6_LOCK_MARKERS = [
+  '"pixi.js": "6',
+  '"@pixi/unsafe-eval"',
+  'node_modules/pixi.js',
+  'node_modules/@pixi'
 ];
 
 function parseArgs(argv) {
   const options = {
-    projectRoot: 'wechat',
-    skipInstall: false,
-    skipBuild: false
+    projectRoot: 'wechat'
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -44,19 +77,7 @@ function parseArgs(argv) {
       continue;
     }
 
-    if (token === '--skip-install') {
-      options.skipInstall = true;
-      continue;
-    }
-
-    if (token === '--skip-build') {
-      options.skipBuild = true;
-      continue;
-    }
-
-    if (token === '--sync-only') {
-      options.skipInstall = true;
-      options.skipBuild = true;
+    if (token === '--skip-install' || token === '--skip-build' || token === '--sync-only') {
       continue;
     }
 
@@ -70,69 +91,91 @@ function parseArgs(argv) {
   return options;
 }
 
-function installDependencies(projectRoot) {
-  const result = process.platform === 'win32'
-    ? childProcess.spawnSync(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', 'npm install'], {
-      cwd: projectRoot,
-      stdio: 'inherit',
-      windowsHide: true
-    })
-    : childProcess.spawnSync('npm', ['install'], {
-      cwd: projectRoot,
-      stdio: 'inherit'
-    });
+function block(message) {
+  throw new Error(`BLOCKED ${message}`);
+}
 
-  if (result.error) {
-    throw result.error;
-  }
-
-  if (result.status !== 0) {
-    throw new Error(`npm install failed with exit code ${result.status}`);
+function ensureFileExists(filePath, message) {
+  if (!fs.existsSync(filePath)) {
+    block(message);
   }
 }
 
-function mergePackageJson(existingPackageJson, versions, repoRoot) {
+function ensurePixiVersion(sourcePixiPath) {
+  const pixiContent = readUtf8(sourcePixiPath);
+
+  if (!pixiContent.includes('4.8.2')) {
+    block(`Missing Pixi 4.8.2 marker in local baseline asset: ${sourcePixiPath}`);
+  }
+}
+
+function ensureBaselineAssets(repoRoot) {
+  const baselineRoot = path.join(repoRoot, BASELINE_ROOT);
+  const missing = REQUIRED_BASELINE_FILES
+    .map((relativePath) => path.join(baselineRoot, relativePath))
+    .filter((filePath) => !fs.existsSync(filePath));
+
+  if (missing.length > 0) {
+    block(`Missing local official Pixi4 baseline assets: ${missing.map((filePath) => path.relative(repoRoot, filePath).replace(/\\/g, '/')).join(', ')}. Add official minigame-lockstep-demo baseline files under ${BASELINE_ROOT} before running initialization.`);
+  }
+
+  ensurePixiVersion(path.join(baselineRoot, 'libs', 'pixi.js'));
+
+  return baselineRoot;
+}
+
+function mergePackageJson(existingPackageJson, repoRoot) {
   const packageJson = { ...existingPackageJson };
 
   packageJson.name = packageJson.name || createPackageName(repoRoot);
-  packageJson.version = packageJson.version || versions.defaults.version;
+  packageJson.version = packageJson.version || '1.0.0';
   packageJson.private = true;
-  packageJson.description = packageJson.description || versions.defaults.description;
+  packageJson.description = 'WeChat Mini Game Pixi4 project shell';
+  packageJson.engines = {
+    node: '>=20'
+  };
   packageJson.scripts = {
     ...(packageJson.scripts || {}),
-    ...versions.scripts
+    preview: 'node scripts/preview.js',
+    upload: 'node scripts/upload.js'
   };
-  packageJson.dependencies = {
-    ...(packageJson.dependencies || {}),
-    ...versions.dependencies
-  };
-  packageJson.devDependencies = {
-    ...(packageJson.devDependencies || {}),
-    ...versions.devDependencies
-  };
-  packageJson.overrides = {
-    ...(packageJson.overrides || {}),
-    ...(versions.overrides || {})
-  };
-  packageJson.engines = {
-    ...(packageJson.engines || {}),
-    ...versions.engines
-  };
+
+  delete packageJson.wechatUpload;
+  delete packageJson.scripts['build:npm'];
+
+  if (packageJson.dependencies) {
+    delete packageJson.dependencies['pixi.js'];
+    if (Object.keys(packageJson.dependencies).length === 0) {
+      delete packageJson.dependencies;
+    }
+  }
+
+  if (packageJson.devDependencies) {
+    delete packageJson.devDependencies['@pixi/unsafe-eval'];
+    if (Object.keys(packageJson.devDependencies).length === 0) {
+      delete packageJson.devDependencies;
+    }
+  }
+
+  if (packageJson.overrides) {
+    delete packageJson.overrides.less;
+    if (Object.keys(packageJson.overrides).length === 0) {
+      delete packageJson.overrides;
+    }
+  }
 
   return packageJson;
 }
 
-function mergeProjectConfig(existingProjectConfig, versions) {
+function mergeProjectConfig(existingProjectConfig) {
   const nextProjectConfig = { ...existingProjectConfig };
-  const expectedSetting = versions.projectConfig && versions.projectConfig.setting
-    ? versions.projectConfig.setting
-    : {};
+  const compileType = nextProjectConfig.compileType;
 
-  nextProjectConfig.compileType = nextProjectConfig.compileType || 'game';
-  nextProjectConfig.setting = {
-    ...(nextProjectConfig.setting || {}),
-    ...expectedSetting
-  };
+  if (compileType && compileType !== 'game') {
+    block(`Invalid project.config.json compileType: ${compileType}. Mini Game initialization requires compileType=game.`);
+  }
+
+  nextProjectConfig.compileType = 'game';
 
   return nextProjectConfig;
 }
@@ -154,7 +197,7 @@ ${exportName}(path.resolve(__dirname, '..')).catch((error) => {
 
 function reportSyncedFiles(results) {
   if (results.length === 0) {
-    console.log('[init] Project shell already matches the shared Mini Game baseline.');
+    console.log('[init] Project shell already matches the shared Mini Game Pixi4 baseline.');
     return;
   }
 
@@ -162,74 +205,190 @@ function reportSyncedFiles(results) {
   results.forEach((item) => console.log(`[init] - ${item}`));
 }
 
-function syncParticleLibrary(resolvedRepoRoot, projectRoot) {
-  const sourceLibraryRoot = path.join(resolvedRepoRoot, 'user-assets', 'particle-library');
-  const targetLibraryRoot = path.join(projectRoot, 'user-assets', 'particle-library');
-  const sourceIndexPath = path.join(sourceLibraryRoot, 'index.js');
+function removeLines(existingContent, removedLines) {
+  const removed = new Set(removedLines);
 
-  if (!fs.existsSync(sourceLibraryRoot)) {
-    throw new Error(`Missing default particle library: ${sourceLibraryRoot}. Create user-assets/particle-library before running Mini Game initialization.`);
+  return existingContent
+    .replace(/\r?\n/g, '\n')
+    .split('\n')
+    .filter((line) => !removed.has(line.trim()))
+    .join('\n');
+}
+
+function removeLegacyPath(projectRoot, relativePath) {
+  const targetPath = path.resolve(projectRoot, relativePath);
+  const safeRoot = `${path.resolve(projectRoot)}${path.sep}`;
+
+  if (targetPath !== path.resolve(projectRoot) && !targetPath.startsWith(safeRoot)) {
+    block(`Refusing to remove legacy path outside /wechat: ${relativePath}`);
   }
 
-  if (!fs.existsSync(sourceIndexPath)) {
-    throw new Error(`Missing default particle library index: ${sourceIndexPath}.`);
+  if (!fs.existsSync(targetPath)) {
+    return false;
   }
 
-  return copyDirectoryIfChanged(sourceLibraryRoot, targetLibraryRoot)
-    .map((filePath) => path.relative(resolvedRepoRoot, filePath).replace(/\\/g, '/'));
+  fs.rmSync(targetPath, { recursive: true, force: true });
+  return true;
+}
+
+function removeEmptyDirectory(projectRoot, relativePath) {
+  const targetPath = path.resolve(projectRoot, relativePath);
+  const safeRoot = `${path.resolve(projectRoot)}${path.sep}`;
+
+  if (targetPath !== path.resolve(projectRoot) && !targetPath.startsWith(safeRoot)) {
+    block(`Refusing to remove directory outside /wechat: ${relativePath}`);
+  }
+
+  if (!fs.existsSync(targetPath) || !fs.statSync(targetPath).isDirectory()) {
+    return false;
+  }
+
+  if (fs.readdirSync(targetPath).length > 0) {
+    return false;
+  }
+
+  fs.rmdirSync(targetPath);
+  return true;
+}
+
+function removeLegacyPackageLock(projectRoot) {
+  const packageLockPath = path.join(projectRoot, 'package-lock.json');
+
+  if (!fs.existsSync(packageLockPath)) {
+    return false;
+  }
+
+  const packageLockContent = readUtf8(packageLockPath);
+  const hasLegacyPixi = LEGACY_PIXI6_LOCK_MARKERS.some((marker) => packageLockContent.includes(marker));
+
+  if (!hasLegacyPixi) {
+    return false;
+  }
+
+  return removeLegacyPath(projectRoot, 'package-lock.json');
+}
+
+function cleanupLegacyPixi6(projectRoot, repoRoot) {
+  const removed = [];
+
+  LEGACY_PIXI6_DIRECTORIES.concat(LEGACY_PIXI6_FILES).forEach((relativePath) => {
+    if (removeLegacyPath(projectRoot, relativePath)) {
+      removed.push(path.relative(repoRoot, path.join(projectRoot, relativePath)).replace(/\\/g, '/'));
+    }
+  });
+
+  if (removeLegacyPackageLock(projectRoot)) {
+    removed.push('wechat/package-lock.json');
+  }
+
+  ['js/vendor', 'js', 'node_modules'].forEach((relativePath) => {
+    if (removeEmptyDirectory(projectRoot, relativePath)) {
+      removed.push(path.relative(repoRoot, path.join(projectRoot, relativePath)).replace(/\\/g, '/'));
+    }
+  });
+
+  return removed;
+}
+
+function verifyStartupRoute(projectRoot) {
+  const gameJs = readUtf8(path.join(projectRoot, 'game.js'));
+  const indexJs = readUtf8(path.join(projectRoot, 'src', 'index.js'));
+
+  const checks = [
+    {
+      ok: gameJs.includes("import './libs/weapp-adapter'") || gameJs.includes('import "./libs/weapp-adapter"'),
+      message: 'game.js must import ./libs/weapp-adapter'
+    },
+    {
+      ok: gameJs.includes("import App from './src/index.js'") || gameJs.includes('import App from "./src/index.js"'),
+      message: 'game.js must import ./src/index.js as App'
+    },
+    {
+      ok: gameJs.includes('new App()') || gameJs.includes('new App('),
+      message: 'game.js must instantiate new App()'
+    },
+    {
+      ok: indexJs.includes("import * as PIXI from '../libs/pixi.js'") || indexJs.includes('import * as PIXI from "../libs/pixi.js"'),
+      message: 'src/index.js must import Pixi from ../libs/pixi.js'
+    },
+    {
+      ok: /class\s+App\s+extends\s+PIXI\.Application/.test(indexJs),
+      message: 'src/index.js must define App extends PIXI.Application'
+    }
+  ];
+
+  const failed = checks.find((check) => !check.ok);
+
+  if (failed) {
+    block(failed.message);
+  }
 }
 
 async function runInit(repoRoot, options) {
   const resolvedRepoRoot = path.resolve(repoRoot);
-  const versions = loadVersions(resolvedRepoRoot);
   const projectRoot = path.resolve(resolvedRepoRoot, options.projectRoot);
   const scriptsDir = path.join(projectRoot, 'scripts');
   const packageJsonPath = path.join(projectRoot, 'package.json');
   const projectConfigPath = path.join(projectRoot, 'project.config.json');
   const gitIgnorePath = path.join(projectRoot, '.gitignore');
   const gameJsonPath = path.join(projectRoot, 'game.json');
+  const appJsonPath = path.join(projectRoot, 'app.json');
   const results = [];
 
-  ensureWechatProjectRoot(projectRoot);
-
-  if (!fs.existsSync(gameJsonPath)) {
-    throw new Error(`Missing ${gameJsonPath}. This initializer is Mini Game-only and expects an existing WeChat DevTools Mini Game shell under /wechat. Recreate the shell first so game.json exists, then rerun node scripts/init-wechat-minigame.js --project-root wechat.`);
+  ensureWechatProjectRoot(projectRoot, resolvedRepoRoot);
+  ensureFileExists(gameJsonPath, `Missing ${gameJsonPath}. This initializer is Mini Game-only and expects an existing WeChat DevTools Mini Game shell under /wechat.`);
+  if (fs.existsSync(appJsonPath)) {
+    block(`Project type conflict: ${appJsonPath} exists. Mini Game initialization requires /wechat/game.json without /wechat/app.json.`);
   }
+  ensureFileExists(projectConfigPath, `Missing ${projectConfigPath}. Restore the WeChat DevTools Mini Game shell before initialization.`);
 
-  if (!fs.existsSync(projectConfigPath)) {
-    throw new Error(`Missing ${projectConfigPath}. Recreate or restore the WeChat DevTools Mini Game shell under /wechat so project.config.json exists, then rerun node scripts/init-wechat-minigame.js --project-root wechat.`);
-  }
+  const baselineRoot = ensureBaselineAssets(resolvedRepoRoot);
+
+  results.push(...cleanupLegacyPixi6(projectRoot, resolvedRepoRoot));
 
   ensureDir(scriptsDir);
 
-  results.push(...syncParticleLibrary(resolvedRepoRoot, projectRoot));
+  REQUIRED_BASELINE_FILES.forEach((relativePath) => {
+    const sourcePath = path.join(baselineRoot, relativePath);
+    const targetPath = path.join(projectRoot, relativePath);
+
+    if (copyFileIfChanged(sourcePath, targetPath)) {
+      results.push(path.relative(resolvedRepoRoot, targetPath).replace(/\\/g, '/'));
+    }
+  });
+
+  REQUIRED_PROJECT_DIRS.forEach((relativePath) => {
+    const dirPath = path.join(projectRoot, relativePath);
+
+    if (!fs.existsSync(dirPath)) {
+      ensureDir(dirPath);
+      results.push(path.relative(resolvedRepoRoot, dirPath).replace(/\\/g, '/'));
+    }
+  });
 
   const existingPackageJson = fs.existsSync(packageJsonPath) ? readJson(packageJsonPath) : {};
-  const nextPackageJson = mergePackageJson(existingPackageJson, versions, resolvedRepoRoot);
+  const nextPackageJson = mergePackageJson(existingPackageJson, resolvedRepoRoot);
 
   if (writeJsonIfChanged(packageJsonPath, nextPackageJson)) {
     results.push('wechat/package.json');
   }
 
   const existingProjectConfig = readJson(projectConfigPath);
-  const nextProjectConfig = mergeProjectConfig(existingProjectConfig, versions);
+  const nextProjectConfig = mergeProjectConfig(existingProjectConfig);
 
   if (writeJsonIfChanged(projectConfigPath, nextProjectConfig)) {
     results.push('wechat/project.config.json');
   }
 
   const existingGitIgnore = fs.existsSync(gitIgnorePath) ? readUtf8(gitIgnorePath) : '';
-  const nextGitIgnore = ensureLines(existingGitIgnore, PROJECT_GITIGNORE_LINES);
+  const cleanedGitIgnore = removeLines(existingGitIgnore, REMOVED_GITIGNORE_LINES);
+  const nextGitIgnore = ensureLines(cleanedGitIgnore, PROJECT_GITIGNORE_LINES);
 
   if (writeTextIfChanged(gitIgnorePath, nextGitIgnore)) {
     results.push('wechat/.gitignore');
   }
 
   const wrapperFiles = [
-    {
-      filePath: path.join(scriptsDir, 'build-npm.js'),
-      content: createWrapperContent('build-npm-core.js', 'runBuildNpm', 'build:npm')
-    },
     {
       filePath: path.join(scriptsDir, 'preview.js'),
       content: createWrapperContent('preview-core.js', 'runPreview', 'preview')
@@ -246,23 +405,10 @@ async function runInit(repoRoot, options) {
     }
   });
 
+  verifyStartupRoute(projectRoot);
+
   reportSyncedFiles(results);
-
-  if (!options.skipInstall) {
-    console.log('[init] Running npm install inside /wechat to install the pinned Pixi and WeChat build toolchain.');
-    installDependencies(projectRoot);
-  } else {
-    console.log('[init] Skipped npm install.');
-  }
-
-  if (!options.skipBuild) {
-    console.log('[init] Running build:npm to validate the shared Pixi Mini Game runtime chain.');
-    await runBuildNpm(projectRoot);
-    console.log('[init] PASS /wechat Mini Game project is build-ready.');
-  } else {
-    console.log('[init] Skipped build:npm. The project shell is synced, but initialization is still PARTIAL until build:npm succeeds.');
-    console.log('[init] PARTIAL /wechat Mini Game shell synced only.');
-  }
+  console.log('[init] PASS /wechat Mini Game Pixi4 baseline is synced.');
 }
 
 async function runInitFromArgs(argv, repoRoot) {

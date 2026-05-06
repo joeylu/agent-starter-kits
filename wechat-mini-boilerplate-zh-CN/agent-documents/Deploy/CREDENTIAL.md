@@ -12,17 +12,19 @@
 
 路径：
 
-`agent-documents/Deploy/credential.local.json`
+```text
+agent-documents/Deploy/credential.local.json
+```
 
 规则：
 
 - 该文件只用于本地，不得提交。
-- 当本 workspace 被复制去启动另一个 WeChat 项目时，第一次 full-init 前先删除或重写 `credential.local.json`。
-- `privateKeyPath` 可以是 repo-relative，也可以是 absolute。
+- 当 workspace 被复制去启动另一个 WeChat 项目时，第一次 full-init 前先删除或重写 `credential.local.json`。
+- `privateKeyPath` 可以是 repo-relative 或 absolute。
 - 可行时，优先把 private key 存在仓库外。
-- 如果本地凭证文件从另一个项目复制而来，执行 `build:npm` 前必须把其中的 `appid` 更新为匹配 `/wechat/project.config.json`。
+- 如果本地凭证文件从另一个项目复制而来，初始化、preview 或 upload 前，里面的 `appid` 必须更新为匹配 `/wechat/project.config.json`。
 
-## build-ready 初始化所需最小字段
+## Build-Ready 初始化最小字段
 
 ```json
 {
@@ -32,9 +34,9 @@
 }
 ```
 
-`appid` 和 `privateKeyPath` 是 `full-init` / `build:npm` 唯一必需字段。
+`appid` 和 `privateKeyPath` 是 full initialization 以及受门控 preview/upload tooling 的最小字段。
 
-## preview/upload 和人工操作建议字段
+## Preview Upload 和人工操作建议字段
 
 - `appSecret`
 - `accountOwner`
@@ -46,7 +48,7 @@
 
 这些字段应在 preview/upload 自动化打开前，或人工提审/发布工作继续前存在。
 
-## 当前本地凭证 schema
+## 当前本地凭证 Schema
 
 ```json
 {

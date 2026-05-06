@@ -1,0 +1,4 @@
+interface:
+  display_name: "WeChat Pixi Particles"
+  short_description: "Pixi4 particle effect workflow"
+  default_prompt: "Use $skill-wechat-minigame-pixi-particles to implement a WeChat Mini Game Pixi4 particle effect."

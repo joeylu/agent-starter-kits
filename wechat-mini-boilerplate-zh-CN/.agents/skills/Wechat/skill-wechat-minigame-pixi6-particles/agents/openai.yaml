@@ -1,4 +1,0 @@
-interface:
-  display_name: "WeChat Mini Game Pixi6 Particles"
-  short_description: "Handle Pixi 6 particle effect requests for WeChat Mini Game."
-  default_prompt: "Use this as the top-level skill for natural-language WeChat Mini Game particle effect requests in a Pixi 6 project, such as sparks, trails, snow, dust, smoke, debris, or hit bursts. Do not use this as the primary match for character loops, mascot idle animation, or other frame-animation requests. Follow the local pixi-runtime adapter path, prefer ParticleContainer plus Sprite pooling for large counts, and when raw spritesheet art still needs packaging, first inspect or ask for a manual 100-2000 character description, wait for the user's exact `CONFIRM_DESCRIPTION`, and only then call the local spritesheet cropper tool directly."

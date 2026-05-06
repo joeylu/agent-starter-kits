@@ -20,7 +20,7 @@ Rules:
 - When this workspace is copied to start a different WeChat project, delete or rewrite `credential.local.json` before the first full-init.
 - `privateKeyPath` may be repo-relative or absolute.
 - Prefer storing the private key outside the repository when practical.
-- If the local credential file is copied from another project, its `appid` must be updated to match `/wechat/project.config.json` before `build:npm`.
+- If the local credential file is copied from another project, its `appid` must be updated to match `/wechat/project.config.json` before initialization, preview, or upload.
 
 ## Minimum Fields For Build-Ready Initialization
 
@@ -32,7 +32,7 @@ Rules:
 }
 ```
 
-`appid` and `privateKeyPath` are the only fields required for `full-init` / `build:npm`.
+`appid` and `privateKeyPath` are the only fields required for full initialization and guarded preview/upload tooling.
 
 ## Recommended Fields For Preview Upload And Human Operations
 

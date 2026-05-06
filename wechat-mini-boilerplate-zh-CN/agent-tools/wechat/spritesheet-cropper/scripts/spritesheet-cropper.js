@@ -86,11 +86,11 @@ function getRepoRoot() {
 
 function ensureAllowedOutputRoot(outputRoot) {
   const resolvedOutputRoot = normalizeResolvedPath(outputRoot);
-  const allowedOutputRoot = normalizeResolvedPath(path.join(getRepoRoot(), "wechat/user-assets/animations"));
+  const allowedOutputRoot = normalizeResolvedPath(path.join(getRepoRoot(), "wechat/images/animations"));
 
   if (resolvedOutputRoot !== allowedOutputRoot) {
     fail(
-      `--output-root must resolve to wechat/user-assets/animations. Refusing generated animation package output outside the approved runtime asset root: ${outputRoot}`
+      `--output-root must resolve to wechat/images/animations. Refusing generated animation package output outside the approved runtime asset root: ${outputRoot}`
     );
   }
 }
@@ -103,9 +103,8 @@ function validateCrop(crop, metadata) {
   }
 }
 
-function buildJson({ animationName, imageSize, grid, frameWidth, frameHeight, loop, description }) {
-  const frames = {};
-  const animationFrames = [];
+function buildManifest({ animationName, grid, frameWidth, frameHeight, loop, description }) {
+  const frames = [];
   const totalFrames = grid.width * grid.height;
   const pad = Math.max(4, String(totalFrames - 1).length);
 
@@ -114,52 +113,26 @@ function buildJson({ animationName, imageSize, grid, frameWidth, frameHeight, lo
       const index = row * grid.width + col;
       const frameName = `${animationName}_${String(index).padStart(pad, "0")}.png`;
 
-      frames[frameName] = {
-        frame: {
-          x: col * frameWidth,
-          y: row * frameHeight,
-          w: frameWidth,
-          h: frameHeight,
-        },
-        rotated: false,
-        trimmed: false,
-        sourceSize: {
-          w: frameWidth,
-          h: frameHeight,
-        },
-        spriteSourceSize: {
-          x: 0,
-          y: 0,
-          w: frameWidth,
-          h: frameHeight,
-        },
-      };
-
-      animationFrames.push(frameName);
+      frames.push({
+        index,
+        file: `frames/${frameName}`,
+        path: `images/animations/${animationName}/frames/${frameName}`,
+        x: col * frameWidth,
+        y: row * frameHeight,
+        width: frameWidth,
+        height: frameHeight,
+      });
     }
   }
 
   return {
+    name: animationName,
+    loop,
+    description,
+    grid: `${grid.width}x${grid.height}`,
+    frameSize: `${frameWidth}x${frameHeight}`,
+    frameCount: totalFrames,
     frames,
-    animations: {
-      [animationName]: animationFrames,
-    },
-    meta: {
-      image: `${animationName}.png`,
-      size: {
-        w: imageSize.width,
-        h: imageSize.height,
-      },
-      scale: "1",
-    },
-    animationMeta: {
-      name: animationName,
-      loop,
-      description,
-      grid: `${grid.width}x${grid.height}`,
-      frameSize: `${frameWidth}x${frameHeight}`,
-      frameCount: totalFrames,
-    },
   };
 }
 
@@ -178,12 +151,12 @@ async function main() {
   const animationName = sanitizeName(args.name || inputPath);
   const outputRoot = args["output-root"]
     ? path.resolve(args["output-root"])
-    : path.join(getRepoRoot(), "wechat/user-assets/animations");
+    : path.join(getRepoRoot(), "wechat/images/animations");
   ensureAllowedOutputRoot(outputRoot);
   const outputDir = path.join(outputRoot, animationName);
-  const outputPng = path.join(outputDir, `${animationName}.png`);
-  const outputJson = path.join(outputDir, `${animationName}.json`);
-  const outputModule = path.join(outputDir, `${animationName}-data.js`);
+  const framesDir = path.join(outputDir, "frames");
+  const manifestDir = path.join(getRepoRoot(), "wechat/src/assets/animations");
+  const outputManifest = path.join(manifestDir, `${animationName}.js`);
 
   let image = sharp(inputPath, { failOn: "error" });
   const inputMetadata = await image.metadata();
@@ -243,12 +216,12 @@ async function main() {
     );
   }
 
-  fs.mkdirSync(outputDir, { recursive: true });
-  fs.writeFileSync(outputPng, processedBuffer);
+  fs.rmSync(outputDir, { recursive: true, force: true });
+  fs.mkdirSync(framesDir, { recursive: true });
+  fs.mkdirSync(manifestDir, { recursive: true });
 
-  const json = buildJson({
+  const manifest = buildManifest({
     animationName,
-    imageSize,
     grid,
     frameWidth,
     frameHeight,
@@ -256,17 +229,29 @@ async function main() {
     description,
   });
 
-  fs.writeFileSync(outputJson, `${JSON.stringify(json, null, 2)}\n`, "utf8");
-  fs.writeFileSync(outputModule, `module.exports = ${JSON.stringify(json, null, 2)};\n`, "utf8");
+  await Promise.all(manifest.frames.map((frame) => {
+    const framePath = path.join(outputDir, frame.file);
+
+    return sharp(processedBuffer)
+      .extract({
+        left: frame.x,
+        top: frame.y,
+        width: frame.width,
+        height: frame.height,
+      })
+      .png()
+      .toFile(framePath);
+  }));
+
+  fs.writeFileSync(outputManifest, `export default ${JSON.stringify(manifest, null, 2)};\n`, "utf8");
 
   console.log(
     JSON.stringify(
       {
         animationName,
         outputDir,
-        png: outputPng,
-        json: outputJson,
-        module: outputModule,
+        framesDir,
+        manifest: outputManifest,
         sourceImageSize: `${inputMetadata.width}x${inputMetadata.height}`,
         outputImageSize: `${imageSize.width}x${imageSize.height}`,
         grid: `${grid.width}x${grid.height}`,

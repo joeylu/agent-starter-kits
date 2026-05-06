@@ -1,0 +1,4 @@
+interface:
+  display_name: "WeChat Mini Game Pixi"
+  short_description: "Pixi4 baseline router for Mini Game"
+  default_prompt: "Use $skill-wechat-minigame-pixi to route WeChat Mini Game Pixi work to the approved Pixi4 baseline."

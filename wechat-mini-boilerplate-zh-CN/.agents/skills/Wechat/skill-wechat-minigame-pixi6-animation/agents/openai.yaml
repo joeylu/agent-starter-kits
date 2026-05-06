@@ -1,4 +1,0 @@
-interface:
-  display_name: "WeChat Mini Game Pixi6 Animation"
-  short_description: "Handle Pixi 6 frame-animation requests for WeChat Mini Game."
-  default_prompt: "Use this as the top-level skill for natural-language WeChat Mini Game frame-animation requests in a Pixi 6 project, such as animating a character, prop, mascot, or UI loop from a local spritesheet. Do not use this as the primary match for sparks, bursts, trails, snow, smoke, or other particle effects. Follow the local pixi-runtime adapter path, use wx.createImage plus `*-data.js`, and when raw spritesheet art still needs packaging, first inspect or ask for a manual 100-2000 character description, wait for the user's exact `CONFIRM_DESCRIPTION`, and only then call the local spritesheet cropper tool directly."

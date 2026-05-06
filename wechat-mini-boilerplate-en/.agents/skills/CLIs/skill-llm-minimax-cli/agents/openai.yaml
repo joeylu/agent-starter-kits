@@ -1,0 +1,4 @@
+interface:
+  display_name: "MiniMax CLI 路由"
+  short_description: "把自然语言请求路由到 MiniMax CLI 工作流。"
+  default_prompt: "Use $skill-llm-minimax-cli as the default repository-local route for natural-language image generation, image understanding, web search, speech, and video requests. Trigger on 生图/画图/识图/看图/分析图片/OCR/search/speech/video unless the user explicitly asks for another provider."

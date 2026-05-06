@@ -4,39 +4,61 @@
 
 This is the type-specific rule set for WeChat Mini Game work.
 
-It applies only after `WECHAT.md` detects `/wechat/game.json`.
-If `WECHAT.md` detects a Mini Program, do not use this document as the implementation standard.
+It applies only after `WECHAT.md` detects:
+
+```text
+/wechat/game.json
+```
+
+If `WECHAT.md` detects a Mini Program, do not use this document.
 
 ## Hard Entry Rule
 
 When `WECHAT.md` detects a Mini Game, read this file before Mini Game design, source edits, initialization, refactor, test, preview, upload, or deployment work.
 
-If this file is missing or unreadable, stop.
+If this file is missing or unreadable, stop and report `BLOCKED`.
 
 ## Document Boundary
 
-This file owns Mini Game architecture and runtime constraints.
+This file owns Mini Game general architecture and runtime constraints.
 
 It does not own:
 
 - project-type detection; use `WECHAT.md`
-- Pixi6 initialization and pre-skill routing; use `bootstrap.pixi.md`
-- concrete animation workflow; use the selected animation skill
-- concrete particle workflow; use the selected particle skill
+- initialization SOP; use `WECHAT-INIT.md`
+- Pixi startup, Pixi API, Pixi animation, Pixi particles, Pixi UI, or Pixi scene implementation
 - local tool usage details; use `agent-tools/TOOLS_WECHAT.md`
 - deploy credentials and release steps; use `agent-documents/Deploy/`
+
+Pixi-related development must enter the Pixi main skill:
+
+```text
+.agents/skills/Wechat/skill-wechat-minigame-pixi/
+```
+
+If that skill does not exist or cannot be read, report `BLOCKED` instead of freely implementing Pixi behavior.
 
 ## Project Boundary
 
 All real Mini Game project files live under:
 
-- `/wechat`
+```text
+/wechat
+```
 
 All agent documents live under:
 
-- `/agent-documents`
+```text
+/agent-documents
+```
 
-Do not create notes, README files, process documents, summaries, or agent workflow files inside `/wechat`.
+Do not create notes, README files, process documents, summaries, agent instructions, or workflow documents inside `/wechat`.
+
+Do not create:
+
+```text
+/wechat/agent-documents
+```
 
 ## Mini Game Identity
 
@@ -52,64 +74,81 @@ Canonical signals:
 - input handling
 - update and render flow
 
-Do not introduce `app.json`, WXML pages, WXSS page layouts, `Page`, `Component`, or Mini Program route architecture unless the Owner explicitly changes the project type.
+Do not introduce Mini Program architecture unless the Owner explicitly changes the project type.
 
-## File Structure Rules
+Forbidden in Mini Game work:
 
-Mini Game work must keep ownership explicit:
+- `app.json`
+- WXML pages
+- WXSS page layout
+- `Page`
+- `Component`
+- Mini Program route architecture
 
-- `game.json` owns Mini Game configuration.
-- `game.js` owns entry startup only.
-- gameplay logic must not be dumped into `game.js`.
-- rendering code must be separate from game state rules when practical.
-- input handling must be centralized when more than one feature consumes input.
-- asset loading must have one clear owner.
-- save data and settings must have one clear owner.
+## Entry Rules
 
-Recommended source ownership:
+`game.js` owns startup only.
 
-- `src/core` for boot, loop, lifecycle, and shared runtime coordination
-- `src/scenes` for scene-level flow
-- `src/systems` for input, collision, audio, animation, and other update systems
-- `src/entities` for game objects
-- `src/rendering` for canvas or WebGL rendering
-- `src/assets` for manifests and loading helpers
-- `src/storage` for save data and settings
+Rules:
 
-Use the existing structure when one already exists.
+- keep `game.js` small
+- initialize the runtime from `game.js`
+- do not dump gameplay logic into `game.js`
+- do not put scene logic, entity logic, asset manifests, save logic, or large UI logic in `game.js`
+- do not create a second entry file unless the existing project already has that pattern
+
+## Recommended Structure
+
+Use the existing structure when it is already clear.
+
+For new or repaired Mini Game structure, prefer:
+
+```text
+wechat/src/index.js
+wechat/src/config.js
+wechat/src/scenes/
+wechat/src/base/
+wechat/src/common/
+wechat/src/systems/
+wechat/src/entities/
+wechat/src/assets/
+wechat/src/storage/
+wechat/images/
+wechat/audio/
+wechat/libs/
+```
+
+Ownership:
+
+- `src/index.js` owns game runtime startup after `game.js`
+- `src/config.js` owns device, canvas, and runtime configuration
+- `src/scenes/` owns scene-level flow
+- `src/base/` owns reusable base classes
+- `src/common/` owns shared utilities and constants
+- `src/systems/` owns input, collision, audio, animation coordination, and other update systems
+- `src/entities/` owns gameplay objects
+- `src/assets/` owns manifests and loading helpers
+- `src/storage/` owns save data and settings
+- `images/` owns runtime image assets
+- `audio/` owns runtime audio assets
+- `libs/` owns checked-in runtime libraries approved by project rules
 
 ## Runtime Rules
 
-Mini Game code must use the WeChat Mini Game runtime model:
+Mini Game code must use the WeChat Mini Game runtime model.
 
-- use `game.js` as the entry point
+Rules:
+
 - use `wx.*` APIs for platform capabilities
-- do not assume browser DOM APIs, HTML elements, CSS layout, or browser routing
+- do not assume browser DOM APIs
+- do not assume HTML elements
+- do not assume CSS layout
+- do not assume browser routing
 - do not assume Mini Program page lifecycles
-- do not assume npm packages are runtime-usable until the WeChat npm build path validates them
+- do not assume Node.js runtime APIs in client code
+- do not add dependencies that require DOM layout, Node runtime APIs, native modules, or unsupported globals
 
-Do not add dependencies that require DOM layout, Node runtime APIs, native modules, or unsupported globals.
-
-## Pixi6 Rules
-
-Pixi6 is allowed only after the `WECHAT.md` initialization gate passes.
-
-For Pixi6 setup, read:
-
-- `agent-documents/bootstrap.pixi.md`
-
-Pixi runtime rules:
-
-- install `pixi.js`, never `pixi`
-- import Pixi through `/wechat/js/vendor/pixi-runtime.js`
-- do not use bare runtime imports from `pixi.js`
-- do not hand-copy Pixi dist files under `/wechat/js`
-- do not use Pixi 7/8-only APIs unless the shared baseline is deliberately upgraded
-- rerun `npm run build:npm` after runtime dependency or build-pin changes
-- treat `parse js file ... failed` as a failed build
-- clear WeChat DevTools compile/npm cache after runtime dependency changes before trusting simulator results
-
-If runtime reports module resolution, unsafe-eval, WebGL, or local image-shape errors, inspect the Pixi initialization path before changing animation, particle, or scene logic.
+Non-Pixi development must not introduce another engine or framework unless the Owner explicitly approves it or the existing project already uses it.
 
 ## Game Loop Rules
 
@@ -118,15 +157,16 @@ There must be one primary update and render loop.
 Rules:
 
 - keep loop ownership explicit
+- separate logic updates from rendering work
 - use delta time for frame-dependent simulation
-- keep update and render responsibilities separate
-- do not create multiple uncoordinated timers or animation loops
+- do not create multiple uncoordinated `setInterval` loops
+- do not create multiple uncoordinated `requestAnimationFrame` loops
 - pause or reduce expensive work when the game is hidden
 - resume safely when the game returns to foreground
 
-Frame hot paths must avoid unnecessary allocation, repeated asset lookup, and repeated object construction.
+Frame hot paths must avoid unnecessary allocation, repeated asset lookup, repeated path resolution, and repeated object construction.
 
-## Canvas And Rendering Rules
+## Rendering Rules
 
 Rendering must be designed for mobile WeChat runtime constraints.
 
@@ -135,10 +175,11 @@ Rules:
 - handle device pixel ratio explicitly
 - handle canvas size changes explicitly
 - keep draw order deterministic
-- preload required assets before first use
+- preload required visual assets before first use
 - provide a blocking state or fallback when required assets fail to load
+- do not rely on CSS to position game content
 
-Do not rely on CSS to position game content.
+Renderer-specific API rules belong to the selected rendering skill or implementation document, not this file.
 
 ## Input Rules
 
@@ -150,8 +191,9 @@ Rules:
 - translate raw touch data into game-space coordinates in one place
 - avoid duplicate listeners for the same scene or system
 - remove or disable listeners when a scene is destroyed or inactive
+- do not let input handlers directly mutate unrelated game state
 
-Input code must not directly mutate unrelated game state without going through the owning system or scene.
+When multiple systems need input, route through the owning input system or scene.
 
 ## Asset Rules
 
@@ -159,40 +201,24 @@ Assets must be managed as runtime resources.
 
 Rules:
 
-- keep asset paths stable and explicit
+- keep image, audio, font, and data paths stable and explicit
+- do not guess paths at runtime
 - preload assets required for the current scene
 - avoid loading large assets during frame-sensitive gameplay
 - keep package size impact visible when adding images, audio, fonts, or large data files
 - do not add decorative assets unused by runtime code
+- do not store agent workflow documents inside `/wechat`
 
-### Frame Animation Package Contract
-
-Generated Pixi frame-animation packages must live under:
-
-```text
-/wechat/user-assets/animations/{animationName}/
-```
-
-Each package must contain:
+Generated or user-provided runtime assets must stay under a project-owned asset path such as:
 
 ```text
-/wechat/user-assets/animations/{animationName}/{animationName}.png
-/wechat/user-assets/animations/{animationName}/{animationName}.json
-/wechat/user-assets/animations/{animationName}/{animationName}-data.js
+wechat/images/
+wechat/audio/
 ```
 
-Forbidden destinations:
+For Pixi visual work, runtime image files must use `wechat/images/`, and code must reference them with `images/...` paths. Repo-root `user-assets/` is source material only. `wechat/user-assets/` is not the default Pixi runtime image path.
 
-- `/wechat/images`
-- `/wechat/js`
-- `/wechat/user-assets` without `/animations/{animationName}/`
-- any flat folder that mixes unrelated atlas PNG, JSON, and `*-data.js` files
-
-After generating or changing a frame-animation package, run:
-
-```bash
-node agent-tools/wechat/spritesheet-cropper/scripts/validate-animation-assets.js --name {animationName}
-```
+The exact asset contract for Pixi animation or particles belongs to the selected Pixi child skill.
 
 ## State And Save Rules
 
@@ -201,7 +227,8 @@ Game state and persisted save data must be separate.
 Rules:
 
 - transient runtime state stays in memory
-- persisted data uses explicit schema and versioning
+- persisted data uses an explicit schema
+- persisted data uses versioning when the schema can change
 - persisted keys must use a project-specific prefix
 - save writes must be intentional, not every frame
 - corrupted or missing save data must fall back safely
@@ -219,8 +246,7 @@ Rules:
 - stop or pause audio when the game is hidden if needed
 - do not create unlimited audio instances
 - keep music, ambient sound, and short effects separate
-
-Audio failures must not crash core gameplay.
+- audio failures must not crash core gameplay
 
 ## Performance Rules
 
@@ -229,22 +255,83 @@ Mini Game performance work starts with frame stability.
 Rules:
 
 - keep the frame loop small
-- avoid per-frame JSON parsing, path resolution, and large object creation
+- avoid per-frame JSON parsing
+- avoid per-frame path resolution
+- avoid large per-frame object creation
 - reuse objects in high-frequency systems when it materially reduces churn
 - avoid synchronous heavy work during input response
 - measure before adding complex optimization layers
 
-Do not add a framework or engine unless the Owner explicitly approves it or the project already uses it.
+Do not add a framework, rendering engine, physics engine, ECS layer, or state library unless the Owner explicitly approves it or the project already uses it.
+
+## Pixi Boundary
+
+Pixi is allowed only through the project-approved Pixi main skill.
+
+Pixi work includes:
+
+- Pixi startup
+- Pixi version selection
+- Pixi library path
+- Pixi scene setup
+- Pixi UI
+- Pixi text effects
+- frame animation
+- spritesheets
+- particle effects
+- visual effects implemented with Pixi objects
+
+Required route:
+
+```text
+WECHAT.md
+  -> MINIGAME.md
+  -> .agents/skills/Wechat/skill-wechat-minigame-pixi/
+  -> selected Pixi child skill when needed
+```
+
+Do not implement Pixi behavior from memory.
+Do not use browser Pixi tutorials as project rules.
+Do not replace the project-approved Pixi baseline.
 
 ## Testing And Verification Rules
 
-For Mini Game changes, verify the smallest useful surface:
+For Mini Game changes, verify the smallest useful surface.
 
-- syntax and lint checks if configured
-- `npm run build:npm` before preview when Pixi or runtime npm dependencies changed
-- game startup through preview when runtime wiring changed
-- asset load paths when assets are added or moved
-- lifecycle behavior when pause, resume, audio, storage, or networking changes
+Use checks that match the change:
+
+- syntax checks for changed JavaScript files
+- configured lint checks if present
+- startup check when runtime wiring changes
+- asset path checks when assets are added or moved
+- input checks when touch handling changes
+- lifecycle checks when pause, resume, audio, storage, or networking changes
+- preview command only when preview is needed or requested
 - upload command only when the Owner asks for upload
 
-Do not claim review submission or final release. Those remain human web-console actions.
+Do not claim review submission or final release.
+
+Review submission and final release remain human web-console actions.
+
+## Deployment Boundary
+
+Preview and upload rules live in:
+
+```text
+agent-documents/Deploy/DEPLOY.md
+```
+
+Before preview or upload:
+
+- read `agent-documents/Deploy/DEPLOY.md`
+- read `agent-documents/Deploy/CREDENTIAL.md`
+- do not invent version numbers
+- do not invent version descriptions
+- do not invent release ownership
+- do not expose private-key material
+
+Human-owned steps:
+
+- review submission
+- final release
+- web-console account actions

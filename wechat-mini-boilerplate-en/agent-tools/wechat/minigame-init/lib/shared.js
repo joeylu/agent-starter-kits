@@ -115,9 +115,21 @@ function getRepoRootFromProjectRoot(projectRoot) {
   return path.resolve(projectRoot, '..');
 }
 
-function ensureWechatProjectRoot(projectRoot) {
-  if (path.basename(path.resolve(projectRoot)) !== 'wechat') {
-    throw new Error(`Project root must be /wechat. Received: ${projectRoot}`);
+function ensureWechatProjectRoot(projectRoot, repoRoot) {
+  const resolvedProjectRoot = path.resolve(projectRoot);
+
+  if (repoRoot) {
+    const expectedProjectRoot = path.resolve(repoRoot, 'wechat');
+
+    if (resolvedProjectRoot !== expectedProjectRoot) {
+      throw new Error(`BLOCKED Project root must be the repository /wechat directory: ${expectedProjectRoot}. Received: ${resolvedProjectRoot}`);
+    }
+
+    return;
+  }
+
+  if (path.basename(resolvedProjectRoot) !== 'wechat') {
+    throw new Error(`BLOCKED Project root must be /wechat. Received: ${projectRoot}`);
   }
 }
 
@@ -189,6 +201,7 @@ function toPosixPath(filePath) {
 module.exports = {
   createPackageName,
   copyDirectoryIfChanged,
+  copyFileIfChanged,
   ensureDir,
   ensureLines,
   ensureWechatProjectRoot,

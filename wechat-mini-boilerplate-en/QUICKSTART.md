@@ -17,9 +17,9 @@ Its focus is not a full game engine like Unity or Cocos. It uses lightweight Jav
 Ask the agent to initialize this WeChat Mini Game, initialize this WeChat Mini Program, or use similar natural language.
 
 The agent checks the `/wechat` project shell, project type, `project.config.json`, and initialization requirements.  
-For Mini Game projects, it syncs the Pixi Mini Game toolchain, installs dependencies, runs `build:npm`, and brings the project to build-ready state.
+For Mini Game projects, it syncs the official-demo Pixi4 local-file baseline. It does not install npm Pixi, does not install `@pixi/unsafe-eval`, and does not run `build:npm` as a Pixi initialization requirement.
 
-`build-ready` means the local npm build path is ready. For Mini Games, it also means `miniprogram_npm/` and the Pixi runtime file have been generated.
+Initialization `PASS` means the WeChat shell, type document, deploy docs, and required Pixi4 local baseline files are present.
 
 ## 3. Configure Credentials
 
@@ -48,7 +48,7 @@ The agent follows Mini Program rules or Mini Game rules based on `/wechat/app.js
 
 ## 5. Animation, Particles, And Assets
 
-For WeChat Mini Games, when you mention Pixi, frame animation, frame sequences, particles, smoke, fire, splashes, trails, post-processing, or similar effects, the agent uses the Pixi6 and WeChat Mini Game workflow.
+For WeChat Mini Games, when you mention Pixi, frame animation, frame sequences, particles, smoke, fire, splashes, trails, post-processing, or similar effects, the agent routes through the Pixi4 WeChat Mini Game skills.
 
 Examples:
 

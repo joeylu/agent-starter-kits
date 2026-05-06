@@ -1,0 +1,4 @@
+interface:
+  display_name: "WeChat Pixi Animation"
+  short_description: "Pixi4 frame animation workflow"
+  default_prompt: "Use $skill-wechat-minigame-pixi-animation to implement a WeChat Mini Game Pixi4 looping animation."
